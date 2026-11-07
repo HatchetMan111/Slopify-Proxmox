@@ -259,6 +259,7 @@ bash -x install/slopify.sh --id 100 --debug
 | Symptom | Ursache / Lösung |
 |---|---|
 | `pct create` scheitert: „storage does not support container rootdir" | `--storage` auf einen Container-Storage setzen (`pvesm status`) |
+| `VM 100 already exists on node ...` | Die ID gehört zu einer **VM**, nicht zu einem Container. Das Script erkennt das jetzt im Preflight, überspringt solche IDs bei der automatischen Wahl und nennt eine freie Alternative (`--id 101`) |
 | Docker startet nicht, `overlay2`-Fehler | Rootfs liegt auf ZFS; das Script fällt automatisch auf `vfs` zurück (langsamer). Besser: CT auf LVM-thin legen |
 | `Failed to convert whiteout file ... operation not permitted` beim Image-Pull | overlay2 kann im LXC/ZFS keine Whiteouts schreiben. Das Script merkt das am fehlgeschlagenen Pull und stellt **automatisch** auf `vfs` um (braucht ~2× Image-Platz). Dauerhaft: CT auf LVM-thin oder `{"storage-driver":"vfs"}` in `/etc/docker/daemon.json` |
 | `MUSIC_DIR` leer / „Permission denied" | Host-Ordner muss uid **101000** (unprivileged CT) gehören – macht das Script; bei eigenem Mount `chown 101000:101000` |

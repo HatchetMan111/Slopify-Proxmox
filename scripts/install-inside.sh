@@ -46,15 +46,35 @@ mkdir -p "$(dirname "$INSTALL_LOG")"
 exec > >(tee -a "$INSTALL_LOG") 2>&1
 
 # --- error handling: everything, not just the last line ---------------------
+print_stack() {
+  local i
+  printf '\n--- Stacktrace ---\n'
+  if [[ -n "${LAST_CMD:-}" && "${LAST_CMD:-}" != "$1" ]]; then
+    printf '  Befehl    : %s\n' "$1"
+    printf '  Ausgefuehrt: %s\n' "$LAST_CMD"
+  else
+    printf '  Befehl    : %s\n' "$1"
+  fi
+  local n=0
+  for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
+    case "${FUNCNAME[i]}" in print_stack|on_error) continue ;; esac
+    n=$((n + 1))
+    printf '  #%d  %s:%s  in %s()\n' "$n" \
+      "${BASH_SOURCE[i+1]:-$0}" "${BASH_LINENO[i]:-?}" "${FUNCNAME[i]}"
+  done
+}
+
 on_error() {
-  local code=$1 line=$2 cmd=$3
+  local code=$1 cmd=$2
   trap - ERR
   {
     printf '\n%s================ INSTALLATIONSFEHLER ================%s\n' "$C_ERR" "$C_RESET"
     printf 'Exit-Code : %s\n' "$code"
-    printf 'Ort       : %s\n' "$line"
-    printf 'Befehl    : %s\n' "$cmd"
     printf 'Logdatei  : %s\n' "$INSTALL_LOG"
+    print_stack "$cmd"
+    printf '\n--- Parameter ---\n'
+    printf 'APP_PORT=%s FILES_PORT=%s TAG=%s MUSIC_DIR=%s\n' \
+      "$APP_PORT" "$FILES_PORT" "$SLOPIFY_TAG" "$MUSIC_DIR"
     printf '\n--- systemd: slopify / slopify-files ---\n'
     systemctl --no-pager --full status slopify.service slopify-files.service 2>&1 | head -n 80 || true
     printf '\n--- journal (letzte 120 Zeilen) ---\n'
@@ -66,13 +86,14 @@ on_error() {
     docker info 2>&1 | tail -n 25 || true
     df -h / /var/lib/docker 2>&1 || true
     free -m 2>&1 || true
-    printf '\nVollständiges Log: %s\n' "$INSTALL_LOG"
-    printf 'Erneut mit Shell-Trace: bash -x %s\n' "$0"
+    printf '\nVollstaendiges Log: %s\n' "$INSTALL_LOG"
+    printf 'Erneut mit Shell-Trace (gleiche Umgebungsvariablen noetig):\n'
+    printf '  bash -x %s\n' "$0"
     printf '%s=====================================================%s\n' "$C_ERR" "$C_RESET"
   } >&2
   exit "$code"
 }
-trap 'on_error $? "$(caller 0 2>/dev/null || echo "?" )" "$BASH_COMMAND"' ERR
+trap 'on_error $? "$BASH_COMMAND"' ERR
 
 retry() { # retry <attempts> <sleep> <cmd...>
   local attempts=$1 delay=$2; shift 2

@@ -150,21 +150,40 @@ if [[ $DEBUG -eq 1 ]]; then
 fi
 
 # --- error handling: full chain, never just one line -------------------------
+print_stack() {
+  local i
+  printf '\n--- Stacktrace ---\n'
+  if [[ -n "${LAST_CMD:-}" && "${LAST_CMD:-}" != "$1" ]]; then
+    printf '  Befehl    : %s\n' "$1"
+    printf '  Ausgefuehrt: %s\n' "$LAST_CMD"
+  else
+    printf '  Befehl    : %s\n' "$1"
+  fi
+  local n=0
+  for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
+    case "${FUNCNAME[i]}" in print_stack|on_error) continue ;; esac
+    n=$((n + 1))
+    printf '  #%d  %s:%s  in %s()\n' "$n" \
+      "${BASH_SOURCE[i+1]:-$0}" "${BASH_LINENO[i]:-?}" "${FUNCNAME[i]}"
+  done
+}
+
 on_error() {
-  local code=$1 line=$2 cmd=$3
+  local code=$1 cmd=$2
   trap - ERR
   {
     printf '\n%s================ INSTALLATIONSFEHLER ================%s\n' "$C_ERR" "$C_RESET"
     printf 'Exit-Code : %s\n' "$code"
-    printf 'Ort       : %s\n' "$line"
-    printf 'Befehl    : %s\n' "$cmd"
     printf 'CT-ID     : %s\n' "${CT_ID:-<noch nicht vergeben>}"
+    printf 'Host      : %s (%s)\n' "$(hostname)" "$(pveversion 2>/dev/null | head -1 || echo 'kein PVE')"
     printf 'Logdatei  : %s\n' "$LOG_FILE"
-    printf '\n--- Proxmox ---\n'
-    pveversion 2>&1 || true
+    print_stack "$cmd"
+    printf '\n--- IDs auf diesem Node ---\n'
+    pct list 2>&1 || true
+    command -v qm >/dev/null 2>&1 && qm list 2>&1 || true
     printf '\n--- pvesm status ---\n'
     pvesm status 2>&1 || true
-    if [[ -n "${CT_ID:-}" ]] && pct status "$CT_ID" >/dev/null 2>&1; then
+    if [[ -n "${CT_ID:-}" ]] && pct config "$CT_ID" >/dev/null 2>&1; then
       printf '\n--- pct config %s ---\n' "$CT_ID"
       pct config "$CT_ID" 2>&1 || true
       printf '\n--- systemd (Container) ---\n'
@@ -178,16 +197,23 @@ on_error() {
       printf '\n--- Installer-Log (Container, letzte 80 Zeilen) ---\n'
       pct exec "$CT_ID" -- bash -c 'tail -n 80 /var/log/slopify-install.log 2>&1' || true
     fi
-    printf '\nNächster Schritt: erneut mit vollem Trace ausführen:\n'
-    printf '  bash -x %s %s\n' "$0" "$ORIG_ARGS"
+    printf '\n--- Naechster Schritt: voller Trace ---\n'
+    if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+      printf '  bash -x %s%s\n' "${BASH_SOURCE[0]}" "${ORIG_ARGS:+ $ORIG_ARGS}"
+    else
+      # Gestartet ueber: bash -c "$(wget ...)" – erst speichern, dann mit -x laufen.
+      printf '  wget -qO /root/slopify-install.sh %s/install/slopify.sh\n' "$REPO_RAW"
+      printf '  bash -x /root/slopify-install.sh%s\n' "${ORIG_ARGS:+ $ORIG_ARGS}"
+    fi
     printf '%s=====================================================%s\n' "$C_ERR" "$C_RESET"
   } >&2
   exit "$code"
 }
-trap 'on_error $? "$(caller 0 2>/dev/null || echo "?" )" "$BASH_COMMAND"' ERR
+trap 'on_error $? "$BASH_COMMAND"' ERR
 
 # --- helpers -----------------------------------------------------------------
 run() {
+  LAST_CMD="$*"
   if [[ $DRY_RUN -eq 1 ]]; then
     printf '  %s[dry-run]%s' "$C_WARN" "$C_RESET"
     printf ' %q' "$@"
@@ -227,10 +253,19 @@ fetch_payload() { # fetch_payload <relative/path> <destination>
   fi
 }
 
+# A PVE ID can be taken by a container *or* a VM. Both must be skipped,
+# otherwise pct create dies with "VM 100 already exists".
+id_in_use() {
+  local id=$1
+  pct config "$id" >/dev/null 2>&1 && return 0
+  command -v qm >/dev/null 2>&1 && qm config "$id" >/dev/null 2>&1 && return 0
+  return 1
+}
+
 next_free_id() {
   local id
   for ((id = 100; id < 1000; id++)); do
-    if ! pct status "$id" >/dev/null 2>&1; then printf '%s\n' "$id"; return 0; fi
+    if ! id_in_use "$id"; then printf '%s\n' "$id"; return 0; fi
   done
   return 1
 }
@@ -307,13 +342,20 @@ fi
 
 # existing container? -> reuse, but never touch a foreign one
 CT_EXISTS=0
-if [[ $DRY_RUN -eq 0 ]] && pct status "$CT_ID" >/dev/null 2>&1; then
-  CT_EXISTS=1
-  EXISTING_HOSTNAME=$(pct config "$CT_ID" | sed -n 's/^hostname: //p')
-  if [[ "$EXISTING_HOSTNAME" != "$CT_HOSTNAME" ]]; then
-    die "CT $CT_ID existiert bereits, heißt aber '$EXISTING_HOSTNAME' (erwartet: '$CT_HOSTNAME'). Nichts wurde verändert. Andere --id wählen."
+if [[ $DRY_RUN -eq 0 ]]; then
+  if pct config "$CT_ID" >/dev/null 2>&1; then
+    CT_EXISTS=1
+    EXISTING_HOSTNAME=$(pct config "$CT_ID" | sed -n 's/^hostname: //p')
+    if [[ "$EXISTING_HOSTNAME" != "$CT_HOSTNAME" ]]; then
+      die "CT $CT_ID existiert bereits, heißt aber '$EXISTING_HOSTNAME' (erwartet: '$CT_HOSTNAME'). Nichts wurde verändert. Andere --id wählen."
+    fi
+    ok "CT $CT_ID existiert bereits – Update-Modus (Daten und Passwörter bleiben erhalten)"
+  elif command -v qm >/dev/null 2>&1 && qm config "$CT_ID" >/dev/null 2>&1; then
+    FREE_ID=$(next_free_id || true)
+    die "ID $CT_ID ist bereits eine VM (qm config $CT_ID), kein Container – pct create würde mit 'VM $CT_ID already exists' abbrechen. Nichts wurde verändert. Nimm --id ${FREE_ID:-<freie ID>} oder lass --id ganz weg (dann wird automatisch die nächste freie ID gewählt)."
+  else
+    ok "Neuer Container wird angelegt (ID ${CT_ID})"
   fi
-  ok "CT $CT_ID existiert bereits – Update-Modus (Daten und Passwörter bleiben erhalten)"
 else
   ok "Neuer Container wird angelegt (ID ${CT_ID})"
 fi
