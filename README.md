@@ -1,14 +1,15 @@
-# slopify-lxc
+# Slopify-Proxmox
 
 Ein Einzeiler, der **Slopify** als LXC auf Proxmox VE installiert – inklusive
 **Dateimanager mit Upload direkt in den Musikordner**.
 
+Repository: <https://github.com/HatchetMan111/Slopify-Proxmox>
+
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB_USER/slopify-lxc/main/install/slopify.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HatchetMan111/Slopify-Proxmox/main/install/slopify.sh)"
 ```
 
-> `YOUR_GITHUB_USER` einmal durch deinen GitHub-Namen ersetzen (siehe
-> [Veröffentlichen](#veröffentlichen)) – danach ist es genau dieser Befehl.
+> Genau dieser Befehl funktioniert so, ohne Anpassung.
 
 | | |
 |---|---|
@@ -63,13 +64,13 @@ Slopify liest nur deine Dateien, dufs auch.
 ### 1. Auf dem Proxmox-Host
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB_USER/slopify-lxc/main/install/slopify.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HatchetMan111/Slopify-Proxmox/main/install/slopify.sh)"
 ```
 
 Alternative ohne `curl` (wie in der Vorgabe):
 
 ```bash
-bash -c "$(wget -qLO - https://raw.githubusercontent.com/YOUR_GITHUB_USER/slopify-lxc/main/install/slopify.sh)"
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/Slopify-Proxmox/main/install/slopify.sh)"
 ```
 
 Das Script fragt nichts und nimmt die Defaults. Es legt den nächsten freien
@@ -79,15 +80,15 @@ Zugangsdaten und Logpfad aus.
 ### 2. Mit eigenen Werten
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB_USER/slopify-lxc/main/install/slopify.sh)" \
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HatchetMan111/Slopify-Proxmox/main/install/slopify.sh)" \
   -s -- --id 121 --music-path /tank/music --ip 192.168.1.50/24 --gw 192.168.1.1 --ram 4096
 ```
 
 Aus einem lokalen Checkout (ohne GitHub):
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USER/slopify-lxc.git
-cd slopify-lxc
+git clone https://github.com/HatchetMan111/Slopify-Proxmox.git
+cd Slopify-Proxmox
 bash install/slopify.sh --dry-run     # zeigt nur, was passieren würde
 bash install/slopify.sh               # echte Installation
 ```
@@ -380,27 +381,25 @@ test/pve-smoke-test.sh      # Reboot-Test auf dem Proxmox-Host
 
 ---
 
-## Veröffentlichen
+## Repository & Updates
 
-1. Repo forken/klonen und den Platzhalter ersetzen:
+Das Repo ist öffentlich: <https://github.com/HatchetMan111/Slopify-Proxmox>
 
-   ```bash
-   sed -i 's/YOUR_GITHUB_USER/deinname/g' install/slopify.sh README.md
-   ```
+```bash
+git clone https://github.com/HatchetMan111/Slopify-Proxmox.git
+cd Slopify-Proxmox
+```
 
-2. Auf GitHub pushen:
+Änderungen an `scripts/` oder `config/` werden **beim nächsten Install-Lauf**
+wirksam, weil `install/slopify.sh` die Payload-Dateien immer frisch aus
+`main` lädt (`REPO_RAW`). Lokal testen, ohne zu pushen:
 
-   ```bash
-   git init && git add . && git commit -m "slopify-lxc installer"
-   git branch -M main
-   git remote add origin git@github.com:deinname/slopify-lxc.git
-   git push -u origin main
-   ```
+```bash
+SLOPIFY_LOCAL_DIR=$(pwd) bash install/slopify.sh --dry-run
+```
 
-3. Fertig – der Einzeiler oben funktioniert jetzt mit deinem Namen.
-   Das Script lädt die Payload-Dateien (`scripts/`, `config/`) zur Laufzeit
-   aus **demselben** Repo (`REPO_RAW`); lokal testen geht mit
-   `SLOPIFY_LOCAL_DIR=$(pwd) bash install/slopify.sh`.
+Eigene Forks: `SLOPIFY_REPO_RAW=https://raw.githubusercontent.com/DEINNAME/DEINREPO/main`
+setzen – dann werden Script und Payload aus deinem Fork geladen.
 
 ---
 

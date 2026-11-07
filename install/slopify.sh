@@ -6,7 +6,7 @@
 #  systemd units, and verifies that both web UIs answer.
 #
 #  Quick start (root on the Proxmox host):
-#     bash -c "$(curl -fsSL https://raw.githubusercontent.com/YOUR_GITHUB_USER/slopify-lxc/main/install/slopify.sh)"
+#     bash -c "$(curl -fsSL https://raw.githubusercontent.com/HatchetMan111/Slopify-Proxmox/main/install/slopify.sh)"
 #
 #  Everything is configurable:
 #     ... | bash -s -- --id 121 --music-path /tank/music --ram 4096 --disk 32
@@ -18,7 +18,7 @@ set -Eeuo pipefail
 APP_NAME="slopify"
 APP_TITLE="Slopify"
 # Where the payload files (compose.yml, units, in-container installer) live.
-REPO_RAW="${SLOPIFY_REPO_RAW:-https://raw.githubusercontent.com/YOUR_GITHUB_USER/slopify-lxc/main}"
+REPO_RAW="${SLOPIFY_REPO_RAW:-https://raw.githubusercontent.com/HatchetMan111/Slopify-Proxmox/main}"
 
 # --- defaults (override with flags or environment) ---------------------------
 CT_ID="${CT_ID:-}"
