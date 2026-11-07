@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck installieren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: Statische Checks + Dry-Run
+        run: bash test/lint.sh
+      - name: File-Browser-Smoke-Test (Upload + Neustart)
+        run: bash test/files-ui-smoke.sh

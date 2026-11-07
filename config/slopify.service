@@ -1,0 +1,24 @@
+[Unit]
+Description=Slopify music server (Docker Compose, host network)
+Documentation=https://github.com/lukasbaxter/slopify
+Requires=docker.service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/slopify
+Environment=COMPOSE_ANSI=never
+# compose runs in the foreground; systemd supervises it and restarts the
+# whole stack if it ever exits. `docker compose up` uses the already pulled
+# image on reboot, so the box comes back without internet.
+ExecStart=/usr/bin/docker compose -f /opt/slopify/compose.yml up --remove-orphans
+ExecStop=/usr/bin/docker compose -f /opt/slopify/compose.yml down
+Restart=always
+RestartSec=15
+TimeoutStartSec=0
+TimeoutStopSec=180
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,38 @@
+# Slopify – Docker Compose stack, managed by slopify.service.
+# Values come from /opt/slopify/.env (written by the installer).
+#
+# The music folder is mounted read-only on purpose: the file manager
+# (dufs, port 8081) is the only thing that writes there.
+services:
+  slopify:
+    image: ghcr.io/lukasbaxter/slopify:${SLOPIFY_TAG:-latest}
+    container_name: slopify
+    restart: unless-stopped
+    # Host networking is required for Chromecast/BluOS discovery and the
+    # mDNS announcement Home Assistant listens for. The container therefore
+    # shares the LXC's IP and PORT.
+    network_mode: host
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    volumes:
+      - /music:/music:ro
+      - /opt/slopify/data:/data
+    environment:
+      PORT: "${APP_PORT:-8080}"
+      TZ: "${TZ:-Europe/Berlin}"
+      LANGUAGE: "${LANGUAGE:-de}"
+      PUID: "1000"
+      PGID: "1000"
+      # First-run admin account. The app forces a new password on first login.
+      ADMIN_USER: "${ADMIN_USER:-admin}"
+      ADMIN_PASS: "${ADMIN_PASS:-admin}"
+      # Small box, small disk: keep the rebuildable caches tight.
+      TRANSCODE_CACHE_GB: "${TRANSCODE_CACHE_GB:-8}"
+      TRANSCODE_CONCURRENCY: "${TRANSCODE_CONCURRENCY:-2}"
+      SCAN_PAUSE_MS: "${SCAN_PAUSE_MS:-20}"
+      # PUBLIC_URL is intentionally unset: Slopify detects the LXC's LAN
+      # address itself. Only set it if the speaker URL in the logs is wrong:
+      # PUBLIC_URL: "${PUBLIC_URL:-}"

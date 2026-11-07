@@ -1,0 +1,27 @@
+[Unit]
+Description=Slopify file manager (dufs on the music folder)
+Documentation=https://github.com/sigoden/dufs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Same uid as the Slopify container (1000), so uploaded files are immediately
+# readable by the music server.
+User=slopify
+Group=slopify
+# Required on purpose (no leading "-"): if this file is missing, the service
+# must fail instead of starting a file server without authentication.
+EnvironmentFile=/etc/default/slopify-files
+Environment=FILES_PORT=8081
+ExecStart=/usr/local/bin/dufs /music --bind 0.0.0.0 --port ${FILES_PORT} --allow-upload --allow-delete --allow-search --allow-archive --hidden .git,.DS_Store,.stfolder,.Trash-*
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/music
+
+[Install]
+WantedBy=multi-user.target
