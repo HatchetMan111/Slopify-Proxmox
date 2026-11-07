@@ -138,6 +138,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run)       DRY_RUN=1; shift ;;
     --uninstall)     UNINSTALL=1; shift ;;
     --yes|-y)        ASSUME_YES=1; shift ;;
+    --)              shift ;;   # allow: bash -c "$(curl ...)" -s -- --id 121
     -h|--help)       usage; exit 0 ;;
     *) die "Unbekannte Option: $1 (siehe --help)" ;;
   esac
@@ -235,7 +236,7 @@ next_free_id() {
 }
 
 # --- local checkout auto-detection (bash install/slopify.sh) -----------------
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd || echo "")"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-}")" >/dev/null 2>&1 && pwd || echo "")"
 if [[ -z "${SLOPIFY_LOCAL_DIR:-}" && -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/../scripts/install-inside.sh" ]]; then
   SLOPIFY_LOCAL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
