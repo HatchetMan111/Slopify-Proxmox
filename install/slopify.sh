@@ -25,8 +25,8 @@ CT_ID="${CT_ID:-}"
 CT_HOSTNAME="${CT_HOSTNAME:-slopify}"
 CORES="${CORES:-2}"
 RAM_MB="${RAM_MB:-2048}"
-# The Slopify image alone is ~4.5 GB. 8 GB is not enough for image + Docker +
-# database + caches; 24 GB is the honest minimum, 32 GB is comfortable.
+# The image is ~350 MB, but Docker, the SQLite database, covers, song heads and
+# the transcode cache need room. 24 GB is the honest minimum, 32 GB is comfy.
 DISK_GB="${DISK_GB:-24}"
 STORAGE="${STORAGE:-}"
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
@@ -258,9 +258,13 @@ valid_port "$FILES_PORT" || die "Ungültiger --files-port: $FILES_PORT"
 if [[ ! "$RAM_MB" =~ ^[0-9]+$ ]] || (( RAM_MB < 1024 )); then die "--ram muss >= 1024 sein."; fi
 if [[ ! "$CORES" =~ ^[0-9]+$ ]] || (( CORES < 1 )); then die "--cores muss >= 1 sein."; fi
 if [[ ! "$DISK_GB" =~ ^[0-9]+$ ]] || (( DISK_GB < 16 )); then
-  die "--disk muss >= 16 GB sein (Slopify-Image allein ~4,5 GB)."
+  die "--disk muss >= 16 GB sein (Docker, Datenbank, Cover und Transcode-Cache müssen Platz haben)."
 fi
 [[ -z "$CT_ID" ]] || valid_id "$CT_ID" || die "--id muss zwischen 100 und 999999 liegen."
+
+if [[ -n "$CT_CIDR" && -z "$CT_GW" ]]; then
+  warn "Statische IP ohne --gw: ohne Gateway hat der Container meist kein Internet – die Installation braucht es aber (Docker, Image)."
+fi
 
 # Passwords end up in /opt/slopify/.env – keep them shell/ini-safe.
 PW_RE='^[A-Za-z0-9._@%+=:,/-]+$'
